@@ -1,25 +1,54 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.16.3)
 project(minkindr)
 
-find_package(catkin_simple REQUIRED)
-catkin_simple(ALL_DEPS_REQUIRED)
+find_package(ament_cmake REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(kindr REQUIRED)
 
-find_package(Threads)
+# This is a header-only library
+add_library(${PROJECT_NAME} INTERFACE)
 
-catkin_add_gtest(${PROJECT_NAME}_tests 
-  test/test-main.cc
-  test/test-rotation.cc
-  test/test-sim3.cc
-  test/test-transformation.cc
-  test/test-transformation-2d.cc
+target_include_directories(${PROJECT_NAME} INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(${PROJECT_NAME}_tests ${catkin_LIBRARIES} 
-                                            ${CMAKE_THREAD_LIBS_INIT})
 
-# Add all files to show up in QtCreator.
-FILE(GLOB_RECURSE LibFiles "include/*")
-add_custom_target(headers SOURCES ${LibFiles})
+target_link_libraries(${PROJECT_NAME} INTERFACE
+  kindr::kindr
+  Eigen3::Eigen
+)
 
-cs_install()
-cs_export()
+# Install header files - keep original structure
+install(DIRECTORY include/
+  DESTINATION include
+  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
 
+# Install the target
+install(TARGETS ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
+  INCLUDES DESTINATION include
+)
+
+# Tests - disabled by default
+option(BUILD_MINKINDR_TESTS "Build minkindr tests" OFF)
+if(BUILD_TESTING AND BUILD_MINKINDR_TESTS)
+  find_package(ament_cmake_gtest REQUIRED)
+  
+  ament_add_gtest(${PROJECT_NAME}_tests
+    test/test-main.cc
+    test/test-rotation.cc
+    test/test-sim3.cc
+    test/test-transformation.cc
+    test/test-transformation-2d.cc
+  )
+  
+  target_link_libraries(${PROJECT_NAME}_tests
+    ${PROJECT_NAME}
+  )
+endif()
+
+ament_export_targets(export_${PROJECT_NAME})
+ament_export_dependencies(kindr Eigen3)
+
+ament_package()
